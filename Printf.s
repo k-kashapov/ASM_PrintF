@@ -39,16 +39,18 @@ StrLen:
 ; Returns:
 ; 	None
 ; Destr:
-; 	rdi
+; 	None
 ;==============================================
 
 PrintStrN:
 	push rax
+	push rdi
 	
     	mov rax, 0x01   	; write (rdi, rsi, rdx)
 	mov rdi, 1		; rdi = stdout
 	syscall			; writes string to the stdout
 
+	pop rdi
 	pop rax
 	
 	ret
@@ -60,19 +62,23 @@ PrintStrN:
 ; Expects:
 ; 	String ptr
 ; Destr:
-; 	rax, rsi
+; 	rax
 ;==============================================
 
 PrintStr:
-	mov [rsp - 8], rsi	; save rsi as local var
-	mov rax, [rsp + 8] 	; push string ptr to stack
+	push rdx		; save rdx
+	push rsi		; save rsi
+
+	mov rax, [rsp + 3 * 8] 	; push string ptr to stack
 	push rax
 	call StrLen		; get string length
 
 	mov rsi, rax
 	call PrintStrN		; PrintStrN (rsi = str ptr, rdx = str len)
 	
-	mov rsi, [rsp - 8] 	; reset rsi value
+	pop rsi			; restore rsi
+	pop rdx			; restore rdx
+	
 	ret 8
 	
 ;==============================================
@@ -98,7 +104,7 @@ Printf:
 	inc rdi 		; move to the next symbol
 
 	cmp al, '%' 		; if (*Msg == '%')
-	je  .percent		; 	print the whole string before the %
+	je  .percent		; 	process the % symbol
 				; else
 	cmp al, EOL 		; if str ended
 	je  .end 		; 	end the program
@@ -107,8 +113,10 @@ Printf:
 	jmp .loop		; process next char
 
 .percent:
+	call PrintStrN		; print the whole str before % sym
+	
 	xor rax, rax
-	mov al, [rdi] 		; load next char after %
+	mov al, [rdi] 		; load next char after % into al
 	
 	sub al, 'b' 		; rax = letter offset from 'b'
 
@@ -141,13 +149,11 @@ Printf:
         dq .symX
 
 .symS:
-	call PrintStrN
+        inc rbx				; increment argument counter
+	push qword [rsp + rbx * 8] 	; push next argument = string ptr
+	call PrintStr 			; Print the string
 
-        inc rbx
-        mov rax, [rsp + rbx * 8]
-
-	push rax
-	call PrintStr
+	add rdx, 2			; step over '%s'
 
 	jmp .symEnd
 	
@@ -174,7 +180,7 @@ Printf:
 	jmp  .loop
 
 .end:
-	call PrintStr	; print the remains
+	call PrintStrN		; print the remains
 
 	ret
 
@@ -183,6 +189,9 @@ Printf:
 ;##############################################
 
 _start:
+	push Msg1
+	push Msg1
+	push Msg1
 	push Msg1
 	push Msg
 	
@@ -197,5 +206,5 @@ _start:
 
 section .data
 
-Msg	db 'Hello %s world', 10, EOL
-Msg1	db 'JOJO', EOL
+Msg	db 'Hello %s %s %s w%sorld', 10, EOL
+Msg1	db 'J%sOJO', EOL
