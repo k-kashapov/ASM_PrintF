@@ -2,7 +2,7 @@ section .text
 
 global _start
 
-EOL	equ 00
+EOL	equ 00	; end of line symbol
 
 ;==============================================
 ; Counts string length. String must end with
@@ -46,9 +46,9 @@ PrintStrN:
 	push rax
 	push rdi
 	
-    	mov rax, 0x01   	; write (rdi, rsi, rdx)
-	mov rdi, 1		; rdi = stdout
-	syscall			; writes string to the stdout
+    	mov rax, 0x01   ; write (rdi, rsi, rdx)
+	mov rdi, 1	; rdi = stdout
+	syscall		; writes string to the stdout
 
 	pop rdi
 	pop rax
@@ -113,26 +113,37 @@ Printf:
 	jmp .loop			; process next char
 
 .percent:
-	call PrintStrN			; print the whole str before % sym
-	
 	xor rax, rax
 	mov al, [rdi] 			; load next char after % into al
-	
+
+	cmp al, 'x' 			; if char > x
+	ja  .otherSym 			; print it
+		
 	sub al, 'b' 			; rax = letter offset from 'b'
+	jb  .otherSym			; if char is not [b-x], print it
 
 	mov rax, [.specSym + rax * 8] 	; load jmp label from jump table
 	jmp rax				; jump at the respective char value
 
+;##############################################
+; Symbols processing
+;##############################################
+
 .symS: 					; %s = print string
+	call PrintStrN			; print the whole str before % sym
+	add rdx, 2
+
         inc rbx				; increment argument counter
 	push qword [rsp + rbx * 8] 	; push next argument = string ptr
-	call PrintStr 			; Print the string
 
-	add rdx, 2			; step over '%s'
+	call PrintStr 			; Print the string
 
 	jmp .symEnd
 	
 .symC: 					; %c = print char
+	call PrintStrN			; print the whole str before % sym
+	add rdx, 2
+	
 	push rsi			; save rsi
 
 	inc rbx				; inc arg counter
@@ -148,7 +159,6 @@ Printf:
 	pop rdx				; restore rdx
 	pop rsi				; restore rsi
 
-	add rdx, 2			; step over '%c'
 	jmp .symEnd
 	
 .symB:
@@ -160,21 +170,7 @@ Printf:
 .symX:
         mov rax, 6
 
-.otherSym:
-	call PrintStrN
-
-.symEnd:
-	add rsi, rdx		; move string start to the new position
-	
-	mov rdi, rsi		; update string iterator
-	xor rdx, rdx		; reset string len counter
-
-	jmp  .loop
-
-.end:
-	call PrintStrN		; print the remains
-
-	ret
+	jmp .symEnd
 
 ;##############################################
 ; Jump table for symbols: b, c, d, o, s
@@ -203,6 +199,25 @@ Printf:
         dq .otherSym
         dq .otherSym
         dq .otherSym
+
+.otherSym:
+	add rdx, 2		; step over '%_'
+	call PrintStrN		; print the whole str including '%_'
+	
+.symEnd:
+	
+	add rsi, rdx		; move string start to the new position
+	
+	mov rdi, rsi		; update string iterator
+	xor rdx, rdx		; reset string len counter
+
+	jmp  .loop
+
+.end:
+	call PrintStrN		; print the remains
+
+	ret
+
         dq .symX
 
 ;##############################################
@@ -221,5 +236,5 @@ _start:
 
 section .data
 
-Msg	db 'Hello %c world', 10, EOL
+Msg	db 'Hello %c wooohooo %w world', 10, EOL
 Chr	db 'd'
