@@ -126,6 +126,35 @@ Printf:
 	jmp rax				; jump at the respective char value
 
 ;##############################################
+; Jump table for symbols: b, c, d, o, s
+;##############################################
+
+.specSym:
+	dq .symB
+	dq .symC
+	dq .symD
+        dq .otherSym
+        dq .otherSym
+        dq .otherSym
+        dq .otherSym
+        dq .otherSym
+        dq .otherSym
+        dq .otherSym
+        dq .otherSym
+        dq .otherSym
+        dq .otherSym
+        dq .symO
+        dq .otherSym
+        dq .otherSym
+        dq .otherSym
+        dq .symS
+        dq .otherSym
+        dq .otherSym
+        dq .otherSym
+        dq .otherSym
+        dq .symX
+
+;##############################################
 ; Symbols processing
 ;##############################################
 
@@ -161,51 +190,69 @@ Printf:
 
 	jmp .symEnd
 	
-.symB:
-        mov rax, 1
 .symD:
-        mov rax, 3
-.symO:
-        mov rax, 4
-.symX:
-        mov rax, 6
+	call PrintStrN
+	add rdx, 2
 
+	inc rbx 			; inc arg counter
+	mov rdi, [rsp + rbx * 8] 	; load next arg
+
+	push rbx
+	push rsi
+	push rdx
+
+	mov rsi, ItoaBuf
+	call itoa10
+
+	push rsi
+	call PrintStr
+
+	pop rdx
+	pop rsi
+	pop rbx
 	jmp .symEnd
 
-;##############################################
-; Jump table for symbols: b, c, d, o, s
-;##############################################
+.symB:
+	call PrintStrN			; print out string before %
+	mov cl, 1 			; base = 2^1 = 2
+	jmp .PrintNum
+	
+.symO: 	
+	call PrintStrN			; print out string before %
+	mov cl, 3 			; base = 2^3 = 8
+	jmp .PrintNum
+	
+.symX:
+	call PrintStrN			; print out string before %
+	mov cl, 4			; base = 2^4 = 16
+	jmp .PrintNum
 
-.specSym:
-	dq .symB
-	dq .symC
-	dq .symD
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
-        dq .symO
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
-        dq .symS
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
+.PrintNum:
+	add rdx, 2			; step over %_
+
+	inc rbx
+	mov rdi, [rsp + rbx * 8] 	; rdi = value to print
+
+        push rsi
+	push rbx
+        
+	mov rsi, ItoaBuf		; rsi = &ItoaBuf
+	
+	call itoa
+
+	push rsi			; push rsi as PrintStr arg
+	call PrintStr
+	
+       	pop rbx
+       	pop rsi
+
+	jmp .symEnd
 
 .otherSym:
 	add rdx, 2		; step over '%_'
 	call PrintStrN		; print the whole str including '%_'
 	
 .symEnd:
-	
 	add rsi, rdx		; move string start to the new position
 	
 	mov rdi, rsi		; update string iterator
@@ -218,14 +265,139 @@ Printf:
 
 	ret
 
-        dq .symX
+
+;##############################################
+; ITOA functions
+;##############################################
+
+section .data
+
+HEX	db '0123456789ABCDEF'
+ItoaBuf times 64 db 0
+
+section .text
+
+;==============================================
+; Converts integer value into a string, base 2^n
+; Expects:
+;       cl  - Base = 2^cl
+;       rdi - Integer value
+;       rsi - Buffer to write str into
+; Returns:
+;       rsi - Result string
+; Destr:
+; 	rax, rbx, rcx
+;==============================================
+
+itoa:	
+        call CountBytes
+        
+        add rsi, rax                    ; save space for elder bits in buff: _ _ _ rdi: _
+        
+        xor rbx, rbx                    ; rbx = cl
+        mov bl, cl
+
+        mov byte [rsi], EOL             ; put $ as last byte: _ _ _ _ $
+        dec rsi                         ; _ _ _ rdi: _ $
+
+        mov rax, 01b                    ; mask = 0..01b
+        shl rax, cl                     ; mask = 0..010..0b
+        dec rax                         ; mask = 0..01..1b
+
+.BitLoop:
+        mov rbx, rax
+
+        and rbx, rdi                    ; apply mask to rdx
+        shr rdi, cl                     ; cut off masked bits: 01010011 -> 001010|011
+
+        mov bl, [rbx + HEX]
+        mov [rsi], bl
+
+.CmpZero:
+        dec rsi                        	; moving backwards: _ _ rdi: _ 0 1 0 $
+        cmp rdi, 00h                    ; check if the whole value has been printed
+        ja  .BitLoop
+
+	inc rsi				; rsi must point it the first byte of buf
+
+        ret
+
+;==============================================
+; Counts amount of bytes needed to save the
+; number into buffer
+;
+; Expects:
+;       rdi - Value
+;       cl - Base
+; Returns:
+;       rax = ch - amount of bytes needed
+; Destr:
+; 	ch
+;==============================================
+
+CountBytes:
+	xor rax, rax
+        mov rax, rdi	; save value in ax to count bits in it
+        xor ch, ch
+
+.Loop:
+        inc ch  	; bytes counter
+        shr rax, cl     ; rax >> cl
+        jnz .Loop
+
+        mov al, ch
+
+        ret
+
+;==============================================
+; Converts integer value into a string, base 10
+; Expects:
+;       rdi - Integer value
+;       rsi - Buffer to write into
+; Returns:
+;       None
+; Destr:
+;       rdx, rcx, rbx
+;==============================================
+
+itoa10:
+        mov rax, rdi		; save value to rcx
+        mov rbx, 10
+
+.CntBytes:              	; skips, bytes that are required to save the value
+        xor rdx, rdx		; reset remaining
+        div rbx                 ; rax = rax / 10; rdx = rax % 10
+
+        inc rsi
+        cmp rax, 0000h
+        ja .CntBytes
+
+        mov rax, rdi           	; reset value
+        
+        mov byte [rsi], EOL
+        dec rsi
+
+.Print:
+        xor rdx, rdx
+        div rbx                 ; rax = rax / 10; rdx = rax % 10
+        
+        add dl, '0'           	; to ASCII
+        mov [rsi], dl
+        dec rsi
+
+        cmp rax, 00h
+        ja .Print
+
+	inc rsi
+
+        ret
 
 ;##############################################
 ; Main
 ;##############################################
 
 _start:
-	push Chr
+	push 13
 	push Msg
 	
 	call Printf
@@ -236,5 +408,5 @@ _start:
 
 section .data
 
-Msg	db 'Hello %c wooohooo %w world', 10, EOL
+Msg	db 'Hello %d wooohooo %w world', 10, EOL
 Chr	db 'd'
