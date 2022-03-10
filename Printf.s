@@ -204,10 +204,10 @@ Printf:
 	push rsi
 	push rdx
 
-	mov rsi, ItoaBuf
-	call itoa10
+	mov rsi, ItoaBuf		; rsi = 64 byte buffer
+	call itoa10			; call itoa base 10
 
-	push rsi
+	push rsi			; push buffer as PrintStr arg
 	call PrintStr
 
 	pop rdx
