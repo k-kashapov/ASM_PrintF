@@ -116,6 +116,9 @@ Printf:
 	xor rax, rax
 	mov al, [rdi] 			; load next char after % into al
 
+	cmp al, '%' 			; special case when %% is entered
+	je  .dblPercent
+
 	cmp al, 'x' 			; if char > x
 	ja  .otherSym 			; print it
 		
@@ -246,6 +249,13 @@ Printf:
        	pop rbx
        	pop rsi
 
+	jmp .symEnd
+
+.dblPercent:
+	add rdx, 1 		; print whole string and 1 percet sym
+	call PrintStrN
+
+	add rdx, 1 		; step over the next % sign
 	jmp .symEnd
 
 .otherSym:
@@ -408,5 +418,5 @@ _start:
 
 section .data
 
-Msg	db 'Hello %d wooohooo %w world', 10, EOL
+Msg	db 'Hello %d wo%%oohooo %w world', 10, EOL
 Chr	db 'd'
