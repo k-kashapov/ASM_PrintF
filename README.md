@@ -7,3 +7,4 @@ Printf C function implemented in Assembly
 * %d - Decimal
 * %o - Octal
 * %b - Binary
+* %% - Percent symbol
