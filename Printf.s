@@ -136,25 +136,11 @@ Printf:
 	dq .symB
 	dq .symC
 	dq .symD
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
+	times ('n' - 'd') dq .otherSym
         dq .symO
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
+        times ('r' - 'o') dq .otherSym
         dq .symS
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
-        dq .otherSym
+        times ('w' - 's') dq .otherSym
         dq .symX
 
 ;##############################################
@@ -418,5 +404,5 @@ _start:
 
 section .data
 
-Msg	db 'Hello %d wo%%oohooo %w world', 10, EOL
+Msg	db 'Hello %x wo%%oohooo %w world', 10, EOL
 Chr	db 'd'
