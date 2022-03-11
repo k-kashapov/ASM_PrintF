@@ -127,21 +127,19 @@ Printf:
 	jmp .symEnd
 
 .symB:
-	call PrintStrN			; print out string before %
 	mov cl, 1 			; base = 2^1 = 2
 	jmp .PrintNum
 	
 .symO: 	
-	call PrintStrN			; print out string before %
 	mov cl, 3 			; base = 2^3 = 8
 	jmp .PrintNum
 	
 .symX:
-	call PrintStrN			; print out string before %
 	mov cl, 4			; base = 2^4 = 16
 	jmp .PrintNum
 
 .PrintNum:
+	call PrintStrN			; print out string before %
 	add rdx, 2			; step over %_
 
 	inc rbx
