@@ -136,7 +136,7 @@ Printf:
 	dq .symB
 	dq .symC
 	dq .symD
-	times ('n' - 'd') dq .otherSym
+	times ('n' - 'd') dq .otherSym	; (C) Technique successfuly stolen from D3phys
         dq .symO
         times ('r' - 'o') dq .otherSym
         dq .symS
