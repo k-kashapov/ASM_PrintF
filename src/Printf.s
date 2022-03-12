@@ -18,7 +18,10 @@ extern Strlen, PrintStr, PrintStrN, itoa, itoa10, ItoaBuf
 ;==============================================
 
 Printf:
-	mov rsi, [rsp + 8]		; load format string to rsi
+	push rbp			; stack frame
+	mov  rbp, rsp
+
+	mov rsi, [rsp + 16]		; load format string to rsi
 	mov rdi, rsi			; rdi - string iterator
 	xor rdx, rdx			; rdx - string lenth counter
 	mov rbx, 1			; rbx - argument iterator
@@ -43,7 +46,7 @@ Printf:
 					; else
 	call PrintStrN			; 	print the whole str before % sym
 	add  rsi, rdx			; 	move rsi to the pos before the %	
-	mov  rdx, 2			;       we're expecting to process next 2 chars
+	
 .noPrint:
 
 	xor rax, rax
@@ -65,6 +68,8 @@ Printf:
 ; Jump table for symbols: b, c, d, o, s
 ;##############################################
 
+[section .data]
+
 .specSym:
 	dq .symB
 	dq .symC
@@ -76,15 +81,18 @@ Printf:
         times ('w' - 's') dq .otherSym
         dq .symX
 
+__SECT__ 				; return to the previous section type
+
 ;##############################################
 ; Symbols processing
 ;##############################################
 
 .symS: 					; %s = print string
         inc rbx				; increment argument counter
-	push qword [rsp + rbx * 8] 	; push next argument = string ptr
+	push qword [rsp + rbx * 8 + 8] 	; push next argument = string ptr
 
 	call PrintStr 			; Print the string
+	mov  rdx, 2			; '%_': 2 bytes processed
 
 	jmp .symEnd
 	
@@ -92,38 +100,22 @@ Printf:
 	push rsi			; save rsi
 
 	inc rbx				; inc arg counter
-	mov rsi, [rsp + rbx * 8 + 8] 	; rsi = &char arg
-	
-	push rdx			; save rdx
+	mov rsi, [rsp + rbx * 8 + 16] 	; rsi = &char arg
 	
 	mov rax, 0x01 			; write (rdi, rsi, rdx)
 	mov rdi, 0x01 			; stdout
 	mov rdx, 1 			; write 1 byte
 	syscall
 
-	pop rdx				; restore rdx
 	pop rsi				; restore rsi
+
+	mov rdx, 2			; '%_': 2 bytes processed
 
 	jmp .symEnd
 	
 .symD:
-	inc rbx 			; inc arg counter
-	mov rdi, [rsp + rbx * 8] 	; load next arg
-
-	push rbx
-	push rsi
-	push rdx
-
-	mov rsi, ItoaBuf		; rsi = 64 byte buffer
-	call itoa10			; call itoa base 10
-
-	push rsi			; push buffer as PrintStr arg
-	call PrintStr
-
-	pop rdx
-	pop rsi
-	pop rbx
-	jmp .symEnd
+	mov cl, 0 			; base 10 indicator
+	jmp .PrintNum
 
 .symB:
 	mov cl, 1 			; base = 2^1 = 2
@@ -139,25 +131,34 @@ Printf:
 
 .PrintNum:
 	inc rbx
-	mov rdi, [rsp + rbx * 8] 	; rdi = value to print
+	mov rdi, [rsp + rbx * 8 + 8] 	; rdi = value to print
 
         push rsi
-	push rbx
-        
-	mov rsi, ItoaBuf		; rsi = &ItoaBuf
-	
-	call itoa
 
+	mov rsi, ItoaBuf		; rsi = &ItoaBuf
+
+	cmp cl, 00 			; if base indicator in not 00
+	jne .toBase2n 			; 	base = 2^n
+					; else
+					; 	base = 10
+.toBase10:
+	call itoa10 			; num to string, base 10
+	jmp  .translated
+
+.toBase2n:
+	call itoa 			; number to string, base 2^n
+
+.translated:
 	push rsi			; push rsi as PrintStr arg
 	call PrintStr
 	
-       	pop rbx
        	pop rsi
+       	mov rdx, 2 			; 2 symbols have been processed
 
 	jmp .symEnd
 
 .dblPercent:
-	mov rdx, 1 		; print whole string and 1 percet sym
+	mov rdx, 1 		; print 1 percet sym
 	call PrintStrN
 
 	add rdx, 1 		; step over the next % sign
@@ -176,5 +177,7 @@ Printf:
 
 .end:
 	call PrintStrN		; print the remains
+
+	pop rbp
 
 	ret

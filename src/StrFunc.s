@@ -101,7 +101,7 @@ section .text
 ; Returns:
 ;       rsi - Result string
 ; Destr:
-; 	rax, rbx, rcx
+; 	rax, r10, rcx
 ;==============================================
 
 itoa:	
@@ -109,24 +109,23 @@ itoa:
         
         add rsi, rax                    ; save space for elder bits in buff: _ _ _ rdi: _
         
-        xor rbx, rbx                    ; rbx = cl
-        mov bl, cl
+        movzx rax, cl			; rax = cl
 
         mov byte [rsi], EOL             ; put $ as last byte: _ _ _ _ $
         dec rsi                         ; _ _ _ rdi: _ $
 
-        mov rax, 01b                    ; mask = 0..01b
-        shl rax, cl                     ; mask = 0..010..0b
-        dec rax                         ; mask = 0..01..1b
+        mov r10, 01b                    ; mask = 0..01b
+        shl r10, cl                     ; mask = 0..010..0b
+        dec r10                         ; mask = 0..01..1b
 
 .BitLoop:
-        mov rbx, rax
+        mov rax, r10
 
-        and rbx, rdi                    ; apply mask to rdx
+        and rax, rdi                    ; apply mask to rdx
         shr rdi, cl                     ; cut off masked bits: 01010011 -> 001010|011
 
-        mov bl, [rbx + HEX]
-        mov [rsi], bl
+        mov al, [rax + HEX]
+        mov [rsi], al
 
 .CmpZero:
         dec rsi                        	; moving backwards: _ _ rdi: _ 0 1 0 $
@@ -152,7 +151,7 @@ itoa:
 
 CountBytes:
 	xor rax, rax
-        mov rax, rdi	; save value in ax to count bits in it
+        mov rax, rdi	; save value in r10 to count symbols in it
         xor ch, ch
 
 .Loop:
@@ -160,6 +159,7 @@ CountBytes:
         shr rax, cl     ; rax >> cl
         jnz .Loop
 
+	xor rax, rax
         mov al, ch
 
         ret
@@ -172,16 +172,16 @@ CountBytes:
 ; Returns:
 ;       None
 ; Destr:
-;       rdx, rcx, rbx
+;       rdx, rcx, r10
 ;==============================================
 
 itoa10:
-        mov rax, rdi		; save value to rcx
-        mov rbx, 10
+        mov rax, rdi		; save value to rax
+        mov r10, 10
 
 .CntBytes:              	; skips, bytes that are required to save the value
         xor rdx, rdx		; reset remaining
-        div rbx                 ; rax = rax / 10; rdx = rax % 10
+        div r10                 ; rax = rax / 10; rdx = rax % 10
 
         inc rsi
         cmp rax, 0000h
@@ -194,7 +194,7 @@ itoa10:
 
 .Print:
         xor rdx, rdx
-        div rbx                 ; rax = rax / 10; rdx = rax % 10
+        div r10                 ; rax = rax / 10; rdx = rax % 10
         
         add dl, '0'           	; to ASCII
         mov [rsi], dl
