@@ -1,6 +1,6 @@
 section .text
 
-EOL	equ 00h
+%include 'Constant.h'
 
 global Strlen, PrintStr, PrintStrN, itoa, itoa10, ItoaBuf
 

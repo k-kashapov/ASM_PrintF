@@ -1,11 +1,11 @@
 section .text
 
-global _start
+global Printf
 
-EOL	equ 00	; end of line symbol
+%include 'Constant.h'
 
 extern Strlen, PrintStr, PrintStrN, itoa, itoa10, ItoaBuf
-	
+
 ;==============================================
 ; Prints a string with respect to the format
 ; string. Similar to C printf function
@@ -38,9 +38,17 @@ Printf:
 	jmp .loop			; process next char
 
 .percent:
+	cmp rdx, 00 			; if no chars are to be printed:
+	je  .noPrint			; 	don't print
+					; else
+	call PrintStrN			; 	print the whole str before % sym
+	add  rsi, rdx			; 	move rsi to the pos before the %	
+	mov  rdx, 2			;       we're expecting to process next 2 chars
+.noPrint:
+
 	xor rax, rax
 	mov al, [rdi] 			; load next char after % into al
-
+	
 	cmp al, '%' 			; special case when %% is entered
 	je  .dblPercent
 
@@ -73,9 +81,6 @@ Printf:
 ;##############################################
 
 .symS: 					; %s = print string
-	call PrintStrN			; print the whole str before % sym
-	add rdx, 2
-
         inc rbx				; increment argument counter
 	push qword [rsp + rbx * 8] 	; push next argument = string ptr
 
@@ -84,9 +89,6 @@ Printf:
 	jmp .symEnd
 	
 .symC: 					; %c = print char
-	call PrintStrN			; print the whole str before % sym
-	add rdx, 2
-	
 	push rsi			; save rsi
 
 	inc rbx				; inc arg counter
@@ -105,9 +107,6 @@ Printf:
 	jmp .symEnd
 	
 .symD:
-	call PrintStrN
-	add rdx, 2
-
 	inc rbx 			; inc arg counter
 	mov rdi, [rsp + rbx * 8] 	; load next arg
 
@@ -139,9 +138,6 @@ Printf:
 	jmp .PrintNum
 
 .PrintNum:
-	call PrintStrN			; print out string before %
-	add rdx, 2			; step over %_
-
 	inc rbx
 	mov rdi, [rsp + rbx * 8] 	; rdi = value to print
 
@@ -161,14 +157,13 @@ Printf:
 	jmp .symEnd
 
 .dblPercent:
-	add rdx, 1 		; print whole string and 1 percet sym
+	mov rdx, 1 		; print whole string and 1 percet sym
 	call PrintStrN
 
 	add rdx, 1 		; step over the next % sign
 	jmp .symEnd
 
 .otherSym:
-	add rdx, 2		; step over '%_'
 	call PrintStrN		; print the whole str including '%_'
 	
 .symEnd:
@@ -183,22 +178,3 @@ Printf:
 	call PrintStrN		; print the remains
 
 	ret
-
-;##############################################
-; Main
-;##############################################
-
-_start:
-	push 13
-	push Msg
-	
-	call Printf
-
-	mov rax, 0x3c	; exit (rdi)
-	xor rdi, rdi
-	syscall
-
-section .data
-
-Msg	db 'Hello %x wo%%oohooo %w world', 10, EOL
-Chr	db 'd'
