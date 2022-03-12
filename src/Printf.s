@@ -68,7 +68,7 @@ Printf:
 ; Jump table for symbols: b, c, d, o, s
 ;##############################################
 
-[section .data]
+[section .data] 			; (C) Feature by RustamSubkhankulov
 
 .specSym:
 	dq .symB
@@ -158,25 +158,25 @@ __SECT__ 				; return to the previous section type
 	jmp .symEnd
 
 .dblPercent:
-	mov rdx, 1 		; print 1 percet sym
+	mov rdx, 1 			; print 1 percet sym
 	call PrintStrN
 
-	add rdx, 1 		; step over the next % sign
+	add rdx, 1 			; step over the next % sign
 	jmp .symEnd
 
 .otherSym:
-	call PrintStrN		; print the whole str including '%_'
+	call PrintStrN			; print the whole str including '%_'
 	
 .symEnd:
-	add rsi, rdx		; move string start to the new position
+	add rsi, rdx			; move string start to the new position
 	
-	mov rdi, rsi		; update string iterator
-	xor rdx, rdx		; reset string len counter
+	mov rdi, rsi			; update string iterator
+	xor rdx, rdx			; reset string len counter
 
 	jmp  .loop
 
 .end:
-	call PrintStrN		; print the remains
+	call PrintStrN			; print the remains
 
 	pop rbp
 
