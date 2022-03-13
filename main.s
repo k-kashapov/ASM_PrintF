@@ -14,7 +14,7 @@ _start:
 	mov r8, 1337
 	mov rcx, TmpStr
 	mov rdx, 3802
-	mov rsi, Chr
+	mov rsi, 'e'
 	mov rdi, Msg
 	
 	call CPrintf
