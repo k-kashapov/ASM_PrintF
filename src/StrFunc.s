@@ -5,45 +5,18 @@ section .text
 global Strlen, PrintStr, PrintStrN, itoa, itoa10, ItoaBuf
 
 ;==============================================
-; Copies n bytes of string into buffer. Puts
-; ENDL (00h) symbol at the end of the str.
-; Expects:
-;       CX - Number of bytes to copy
-;       DI - Buffer of length >= n + 1
-;       SI - String address
-; Returns:
-;       CX - 00h if successful, non-zero value if not
-; Destr:
-;       AX
-;==============================================
-
-StrNCpy:
-
-.CpyByte:
-        lodsb                           ; copy 1 byte to AL
-        cmp AL, EOL                     ; check if byte is 00h
-        je  .Fin
-        stosb                           ; [DI] = AL 
-
-        Loop .CpyByte
-
-.Fin:
-        mov byte [rdi], EOL              ; ENDL symbol
-        ret
-
-;==============================================
 ; Counts string length. String must end with
 ; EOL symbol
 ; Expects:
-; 	String ptr
+; 	rsi - String
 ; Returns:
-; 	rdx - String length
+; 	rcx - String length
 ; Destr:
 ; 	rsi
 ;==============================================
 
 StrLen:	
-        xor rdx, rdx
+        xor rcx, rcx
         mov rsi, [rsp + 8]
 
 .ChLoop:
@@ -127,6 +100,7 @@ section .text
 ;       rdi - Buffer to write str into
 ; Returns:
 ;       rdi - Result string
+; 	r8  - Number of bytes printed
 ; Destr:
 ; 	rax, r10, rcx
 ;==============================================
@@ -135,8 +109,9 @@ itoa:
         call CountBytes
         
         add rdi, rax                    ; save space for elder bits in buff: _ _ _ rdi: _
-        
+
         movzx rax, cl			; rax = cl
+        mov r8, rax 			; save printed len to r8
 
         mov byte [rdi], EOL             ; put EOL as last byte: _ _ _ _ $
         dec rdi                         ; _ _ _ rdi: _ $
@@ -173,7 +148,7 @@ itoa:
 ; Returns:
 ;       rax = ch - amount of bytes needed
 ; Destr:
-; 	ch
+; 	None
 ;==============================================
 
 CountBytes:

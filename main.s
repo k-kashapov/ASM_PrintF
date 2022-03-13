@@ -11,7 +11,10 @@ extern Printf
 ;##############################################
 
 _start:
+	push 1337
+	push TmpStr
 	push 3802
+	push Chr
 	push Msg
 	
 	call Printf
@@ -22,5 +25,6 @@ _start:
 	
 section .data
 	
-Msg	db '3802 = 0x%x', 10, EOL
+Msg	db 'r = |%c|', 10, '3802 = 0x|%x|', 10, 'JOJO = |%s|', 10,'1337 = |%d|', EOL
 Chr	db 'r'
+TmpStr  db 'JOJO'

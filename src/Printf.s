@@ -1,10 +1,95 @@
-section .text
-
 global Printf
 
 %include 'Constant.h'
 
-extern StrNCpy, Strlen, PrintStr, PrintStrN, itoa, itoa10, ItoaBuf
+extern Strlen, PrintStr, PrintStrN, itoa, itoa10, ItoaBuf
+
+;##############################################
+; Printf Buffer of len BUF_LEN bytes
+;##############################################
+
+section .bss
+
+printBuf	resb BUF_LEN	; buffer for output
+
+section .text
+
+;==============================================
+; Checks if buffer is about to be overflowed.
+; Calls FlushBuf if it is.
+; Expects:
+; 	BUF_LEN - const, buffer length
+; 	rdi     - pointer to some place in buf
+;==============================================
+
+CheckOverflow:
+	cmp rdi, printBuf + BUF_LEN - 1	; if >= BUF_LEN - 1 written
+	jbe .noFlush
+
+	call FlushBuf			; Flush buffer
+
+.noFlush:
+	ret
+
+;==============================================
+; Flushes printf buffer. Returns rdi to the
+; buffer start
+; Expects:
+; 	printBuf - buffer to flush
+; 	rdi      - position of the last printed
+; 		   symbol in buffer
+; Returns:
+; 	rdi = printBuf
+; Destr:
+; 	None
+;==============================================
+
+FlushBuf:
+	push rsi
+	push rdx
+	
+	mov rsi, printBuf	; buffer ptr
+	
+	mov rdx, rdi 		; length to print
+	sub rdx, printBuf 	; 
+	
+	call PrintStrN
+
+	pop rdx
+	pop rsi
+
+	mov rdi, printBuf	; reset buffer
+	
+	ret
+
+;==============================================
+; Copies bytes of string into buffer. Puts
+; ENDL (00h) symbol at the end of the str.
+; Flushes buffer if it's overwlowed.
+; Expects:
+;       rdi - Buffer of length >= n + 1
+;       rsi - String address
+; Returns:
+; 	None
+; Destr:
+;       rax
+;==============================================
+
+CpyToBuf:
+
+.CpyByte:
+	call CheckOverflow
+	
+        lodsb                           ; copy 1 byte to AL
+        cmp al, EOL                     ; check if byte is 00h
+        je  .Fin
+        stosb                           ; [DI] = AL 
+
+        jmp .CpyByte
+
+.Fin:
+        mov byte [rdi], EOL              ; ENDL symbol
+        ret
 
 ;==============================================
 ; Prints a string with respect to the format
@@ -21,7 +106,7 @@ Printf:
 	push rbp			; stack frame
 	mov  rbp, rsp
 
-	mov rsi, [rbp + 8]		; load format string to rsi
+	mov rsi, [rbp + 16]		; load format string to rsi
 	mov rdi, printBuf		; rdi - buffer iterator
 	mov rbx, 1			; rbx - argument iterator
 
@@ -37,6 +122,7 @@ Printf:
 	je  .end 			; 	end the program
 					; else
 	mov [rdi], al	 		; 	copy from format string into buffer
+	call CheckOverflow		; 	check if buffer is overflowed
 	inc rdi				; 	increment current string length
 	jmp .loop			; process next char
 
@@ -80,26 +166,26 @@ __SECT__ 				; return to the previous section type
 ;##############################################
 
 .symS: 					; %s = print string
-        inc rbx				; increment argument counter
-	push qword [rbp + rbx * 8 + 8] 	; push next argument = string ptr
+	push rsi
 
-	call PrintStr 			; Print the string
-	add  rsi, 2			; '%_': 2 bytes processed
+        inc rbx				; increment argument counter
+	mov rsi, [rbp + rbx * 8 + 24] 	; push next argument = string ptr
+
+	call CpyToBuf			; copy arg string to buffer
+
+	pop rsi
+	add rsi, 2			; '%_': 2 bytes processed
 
 	jmp .symEnd
 	
 .symC: 					; %c = print char
-	push rsi			; save rsi
-
 	inc rbx				; inc arg counter
-	mov rsi, [rbp + rbx * 8 + 16] 	; rsi = &char arg
-	
-	mov rax, 0x01 			; write (rdi, rsi, rdx)
-	mov rdi, 0x01 			; stdout
-	mov rdx, 1 			; write 1 byte
-	syscall
+	mov ax, [rbp + rbx * 8 + 24] 	; rsi = &char arg
 
-	pop rsi				; restore rsi
+	mov [rdi], al
+
+	call CheckOverflow
+	inc rdi 			; 1 byte written to buffer
 
 	add rsi, 2			; '%_': 2 bytes processed
 
@@ -123,7 +209,7 @@ __SECT__ 				; return to the previous section type
 
 .PrintNum:
 	inc rbx
-	mov rdx, [rsp + rbx * 8 + 8] 	; rdi = value to print
+	mov rdx, [rbp + rbx * 8 + 8] 	; rdx = value to print
 
         push rsi
 
@@ -141,45 +227,36 @@ __SECT__ 				; return to the previous section type
 	call itoa 			; number to string, base 2^n
 
 .translated:
-	push rsi			; push rsi as PrintStr arg
-	call PrintStr
+	add rdi, r8 			; copy translated str to the buffer
 	
        	pop rsi
-       	mov rdx, 2 			; 2 symbols have been processed
+       	add rsi, 2 			; 2 symbols have been processed
 
 	jmp .symEnd
 
 .dblPercent:
-	mov rdx, 1 			; print 1 percet sym
-	call PrintStrN
+	mov [rdi], al 			; print % into buffer
+	
+	call CheckOverflow
+	inc rdi
 
-	add rdx, 1 			; step over the next % sign
+	inc rsi 			; step over the next % sign
 	jmp .symEnd
 
 .otherSym:
-	call PrintStrN			; print the whole str including '%_'
+	mov byte [rdi], '%'		; print % sign
+	call CheckOverflow
+	inc rdi
+
+	inc rsi 			; step over the next % sign
+	jmp .symEnd
 	
 .symEnd:
-	add rsi, rdx			; move string start to the new position
-	
-	mov rdi, rsi			; update string iterator
-	xor rdx, rdx			; reset string len counter
-
 	jmp  .loop
 
 .end:
-	call PrintStrN			; print the remains
+	call FlushBuf			; print the remains
 
 	pop rbp
 
 	ret
-
-;##############################################
-; Printf Buffer of len 256 bytes
-;##############################################
-
-[section .bss]
-
-printBuf	resb 256		; buffer for output
-
-__SECT__
