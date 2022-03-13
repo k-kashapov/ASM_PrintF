@@ -169,25 +169,26 @@ __SECT__ 				; return to the previous section type
 	push rsi
 
         inc rbx				; increment argument counter
-	mov rsi, [rbp + rbx * 8 + 24] 	; push next argument = string ptr
+	mov rsi, [rbp + rbx * 8 + 8] 	; push next argument = string ptr
 
 	call CpyToBuf			; copy arg string to buffer
 
 	pop rsi
-	add rsi, 2			; '%_': 2 bytes processed
+	inc rsi 			; step over '%_'
 
 	jmp .symEnd
 	
 .symC: 					; %c = print char
 	inc rbx				; inc arg counter
-	mov ax, [rbp + rbx * 8 + 24] 	; rsi = &char arg
+	mov ax, [rbp + rbx * 8 + 8] 	; rsi = &char arg
 
-	mov [rdi], al
+	mov al, [rax] 			; copy one byte of argument
+	mov [rdi], al			; print it to the buffer
 
 	call CheckOverflow
 	inc rdi 			; 1 byte written to buffer
 
-	add rsi, 2			; '%_': 2 bytes processed
+	inc rsi				; step over '%_'
 
 	jmp .symEnd
 	
@@ -211,10 +212,6 @@ __SECT__ 				; return to the previous section type
 	inc rbx
 	mov rdx, [rbp + rbx * 8 + 8] 	; rdx = value to print
 
-        push rsi
-
-	mov rsi, ItoaBuf		; rsi = &ItoaBuf
-
 	cmp cl, 00 			; if base indicator != 00
 	jne .toBase2n 			; 	base = 2^n
 					; else
@@ -228,9 +225,8 @@ __SECT__ 				; return to the previous section type
 
 .translated:
 	add rdi, r8 			; copy translated str to the buffer
-	
-       	pop rsi
-       	add rsi, 2 			; 2 symbols have been processed
+
+       	inc rsi  			; step over '%_'
 
 	jmp .symEnd
 

@@ -112,6 +112,7 @@ itoa:
 
         movzx rax, cl			; rax = cl
         mov r8, rax 			; save printed len to r8
+	dec r8 				; number of bytes excluding the last EOL symbol
 
         mov byte [rdi], EOL             ; put EOL as last byte: _ _ _ _ $
         dec rdi                         ; _ _ _ rdi: _ $
@@ -134,7 +135,7 @@ itoa:
         cmp rdx, 00h                    ; check if the whole value has been printed
         ja  .BitLoop
 
-	inc rdi				; rdi must point it the first byte of buf
+	inc rdi				; rdi must point to the first byte of buf
 
         ret
 
@@ -172,13 +173,14 @@ CountBytes:
 ;       rdx - Integer value
 ;       rdi - Buffer to write into
 ; Returns:
-;       None
+;       r8  - Printed bytes num
 ; Destr:
-;       rdx, rcx, r10
+;       rdx, r10, r9
 ;==============================================
 
 itoa10:
-	mov rdx, r8 		; from now on, value is stored in r8
+	xor r8, r8		; r8 = bytes counter
+	mov r9, rdx 		; from now on, value is stored in r9
         mov rax, rdx		; save value to rax
         mov r10, 10
 
@@ -186,14 +188,15 @@ itoa10:
         xor rdx, rdx		; reset remaining
         div r10                 ; rax = rax / 10; rdx = rax % 10
 
-        inc rsi
+        inc rdi
+        inc r8
         cmp rax, 0000h
         ja .CntBytes
 
-        mov rax, r8           	; reset value
+        mov rax, r9           	; reset value
         
-        mov byte [rsi], EOL
-        dec rsi
+        mov byte [rdi], EOL
+        dec rdi
 
 .Print:
         xor rdx, rdx

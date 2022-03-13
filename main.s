@@ -25,6 +25,6 @@ _start:
 	
 section .data
 	
-Msg	db 'r = |%c|', 10, '3802 = 0x|%x|', 10, 'JOJO = |%s|', 10,'1337 = |%d|', EOL
+Msg	db '%% <- this is percent', 10, 'r = |%c|', 10, '3802 = 0x|%x|', 10, 'JOJO = |%s|', 10,'1337 = |%d|', EOL
 Chr	db 'r'
-TmpStr  db 'JOJO'
+TmpStr  db 'JOJO', EOL
