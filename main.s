@@ -16,8 +16,6 @@ _start:
 	mov rdx, 3802
 	mov rsi, Chr
 	mov rdi, Msg
-
-	mov rsi, Msg
 	
 	call CPrintf
 

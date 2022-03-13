@@ -215,7 +215,6 @@ __SECT__ 				; return to the previous section type
 	inc rbx				; inc arg counter
 	mov ax, [rbp + rbx * 8 + 8] 	; rsi = &char arg
 
-	mov al, [rax] 			; copy one byte of argument
 	mov [rdi], al			; print it to the buffer
 
 	inc rdi 			; 1 byte written to buffer
