@@ -1,2 +1,2 @@
 EOL	equ 00
-BUF_LEN equ 256
+BUF_LEN equ 4

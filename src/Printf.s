@@ -1,4 +1,4 @@
-global Printf
+global Printf, CPrintf
 
 %include 'Constant.h'
 
@@ -84,23 +84,64 @@ CpyToBuf:
         ret
 
 ;==============================================
+; Printf made to be run from C with respect
+; to fastcall Unix conventions.
+;
+; Expects:
+; 	rdi - Format string
+; 	rsi, rdx, rcx, r8, r9, Stack Cdecl - args
+;
+;==============================================
+
+CPrintf:
+	pop r10				; save return addr
+
+	push r9 			;
+	push r8 			;
+	push rcx			;
+	push rdx			;
+	push rsi 			; push args
+
+	push rbx 			; push return addr
+
+	push rbp			; stack frame
+	mov  rbp, rsp
+
+	mov rsi, rdi 			; rsi = format str
+
+	push r10
+
+	call Printf
+
+	pop r10 		 	; pop ret addr
+	pop rbp 			; pop old rbp
+	
+	times 5 pop rax 		; pop args
+	
+	push r10 			; push ret addr
+
+	ret
+
+;==============================================
 ; Prints a string with respect to the format
 ; string. Similar to C printf function
 ;
 ; Expects: (Cdecl)
-; 	Format string ptr, args...
+; 	rsi      - Format string
+; 	printBuf - buffer to print into before
+; 		   writing to screen
+; 	Stack    - arguments
 ;
 ; Returns:
+; 	0
 ;
+; Destr:
+; 	Everything
 ;==============================================
 
 Printf:
-	push rbp			; stack frame
-	mov  rbp, rsp
-
-	mov rsi, [rbp + 16]		; load format string to rsi
 	mov rdi, printBuf		; rdi - buffer iterator
-	mov rbx, 1			; rbx - argument iterator
+	mov rbx, 0			; rbx - argument iterator
 
 .loop:
 	xor rax, rax
@@ -114,8 +155,8 @@ Printf:
 	je  .end 			; 	end the program
 					; else
 	mov [rdi], al	 		; 	copy from format string into buffer
-	CheckOverflow			; 	check if buffer is overflowed
 	inc rdi				; 	increment current string length
+	CheckOverflow			; 	check if buffer is overflowed
 	jmp .loop			; process next char
 
 .percent:
@@ -177,8 +218,8 @@ __SECT__ 				; return to the previous section type
 	mov al, [rax] 			; copy one byte of argument
 	mov [rdi], al			; print it to the buffer
 
-	CheckOverflow
 	inc rdi 			; 1 byte written to buffer
+	CheckOverflow
 
 	inc rsi				; step over '%_'
 
@@ -234,16 +275,16 @@ __SECT__ 				; return to the previous section type
 .dblPercent:
 	mov [rdi], al 			; print % into buffer
 	
+	inc rdi 			; increment buffer ptr
 	CheckOverflow
-	inc rdi
 
 	inc rsi 			; step over the next % sign
 	jmp .symEnd
 
 .otherSym:
 	mov byte [rdi], '%'		; print % sign
+	inc rdi 			; increment buff ptr
 	CheckOverflow
-	inc rdi
 
 	inc rsi 			; step over the next % sign
 	jmp .symEnd
@@ -254,6 +295,5 @@ __SECT__ 				; return to the previous section type
 .end:
 	call FlushBuf			; print the remains
 
-	pop rbp
-
+	xor rax, rax 			; ret val = 0
 	ret

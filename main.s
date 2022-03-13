@@ -4,20 +4,22 @@ global _start
 
 %include 'Constant.h'
 
-extern Printf
+extern Printf, CPrintf
 
 ;##############################################
 ; Main
 ;##############################################
 
 _start:
-	push 1337
-	push TmpStr
-	push 3802
-	push Chr
-	push Msg
+	mov r8, 1337
+	mov rcx, TmpStr
+	mov rdx, 3802
+	mov rsi, Chr
+	mov rdi, Msg
+
+	mov rsi, Msg
 	
-	call Printf
+	call CPrintf
 
 	mov rax, 0x3c	; exit (rdi)
 	xor rdi, rdi
