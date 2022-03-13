@@ -12,24 +12,16 @@ section .bss
 
 printBuf	resb BUF_LEN	; buffer for output
 
-section .text
-
-;==============================================
-; Checks if buffer is about to be overflowed.
-; Calls FlushBuf if it is.
-; Expects:
-; 	BUF_LEN - const, buffer length
-; 	rdi     - pointer to some place in buf
-;==============================================
-
-CheckOverflow:
+%macro CheckOverflow 0
 	cmp rdi, printBuf + BUF_LEN - 1	; if >= BUF_LEN - 1 written
-	jbe .noFlush
+	jbe .noFlush %+ __LINE__
 
 	call FlushBuf			; Flush buffer
 
-.noFlush:
-	ret
+.noFlush %+ __LINE__:
+%endmacro
+
+section .text
 
 ;==============================================
 ; Flushes printf buffer. Returns rdi to the
@@ -78,7 +70,7 @@ FlushBuf:
 CpyToBuf:
 
 .CpyByte:
-	call CheckOverflow
+	CheckOverflow
 	
         lodsb                           ; copy 1 byte to AL
         cmp al, EOL                     ; check if byte is 00h
@@ -122,7 +114,7 @@ Printf:
 	je  .end 			; 	end the program
 					; else
 	mov [rdi], al	 		; 	copy from format string into buffer
-	call CheckOverflow		; 	check if buffer is overflowed
+	CheckOverflow			; 	check if buffer is overflowed
 	inc rdi				; 	increment current string length
 	jmp .loop			; process next char
 
@@ -185,7 +177,7 @@ __SECT__ 				; return to the previous section type
 	mov al, [rax] 			; copy one byte of argument
 	mov [rdi], al			; print it to the buffer
 
-	call CheckOverflow
+	CheckOverflow
 	inc rdi 			; 1 byte written to buffer
 
 	inc rsi				; step over '%_'
@@ -212,6 +204,9 @@ __SECT__ 				; return to the previous section type
 	inc rbx
 	mov rdx, [rbp + rbx * 8 + 8] 	; rdx = value to print
 
+	push rdi			; save old rdi
+	mov rdi, ItoaBuf 		; rdi = temp buffer
+
 	cmp cl, 00 			; if base indicator != 00
 	jne .toBase2n 			; 	base = 2^n
 					; else
@@ -224,7 +219,13 @@ __SECT__ 				; return to the previous section type
 	call itoa 			; number to string, base 2^n
 
 .translated:
-	add rdi, r8 			; copy translated str to the buffer
+	pop rdi				; rdi = free space in buf
+	
+	push rsi
+	mov rsi, ItoaBuf 		; copy from ItoaBuf to PrintBuf
+	call CpyToBuf
+	
+	pop rsi
 
        	inc rsi  			; step over '%_'
 
@@ -233,7 +234,7 @@ __SECT__ 				; return to the previous section type
 .dblPercent:
 	mov [rdi], al 			; print % into buffer
 	
-	call CheckOverflow
+	CheckOverflow
 	inc rdi
 
 	inc rsi 			; step over the next % sign
@@ -241,7 +242,7 @@ __SECT__ 				; return to the previous section type
 
 .otherSym:
 	mov byte [rdi], '%'		; print % sign
-	call CheckOverflow
+	CheckOverflow
 	inc rdi
 
 	inc rsi 			; step over the next % sign
