@@ -11,8 +11,7 @@ extern Printf
 ;##############################################
 
 _start:
-	push 13
-	push Chr
+	push 3802
 	push Msg
 	
 	call Printf
@@ -23,5 +22,5 @@ _start:
 	
 section .data
 	
-Msg	db 'Hello %c %x wo%%oohooo %w world', 10, EOL
+Msg	db '3802 = 0x%x', 10, EOL
 Chr	db 'r'

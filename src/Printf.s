@@ -4,7 +4,7 @@ global Printf
 
 %include 'Constant.h'
 
-extern Strlen, PrintStr, PrintStrN, itoa, itoa10, ItoaBuf
+extern StrNCpy, Strlen, PrintStr, PrintStrN, itoa, itoa10, ItoaBuf
 
 ;==============================================
 ; Prints a string with respect to the format
@@ -21,15 +21,14 @@ Printf:
 	push rbp			; stack frame
 	mov  rbp, rsp
 
-	mov rsi, [rsp + 16]		; load format string to rsi
-	mov rdi, rsi			; rdi - string iterator
-	xor rdx, rdx			; rdx - string lenth counter
+	mov rsi, [rbp + 8]		; load format string to rsi
+	mov rdi, printBuf		; rdi - buffer iterator
 	mov rbx, 1			; rbx - argument iterator
 
 .loop:
 	xor rax, rax
-	mov al, [rdi] 			; load byte symbols into al
-	inc rdi 			; move to the next symbol
+	mov al, [rsi] 			; load byte symbols into al
+	inc rsi 			; move to the next symbol
 
 	cmp al, '%' 			; if (*Msg == '%')
 	je  .percent			; 	process the % symbol
@@ -37,20 +36,13 @@ Printf:
 	cmp al, EOL 			; if str ended
 	je  .end 			; 	end the program
 					; else
-	inc rdx				; 	increment current string length
+	mov [rdi], al	 		; 	copy from format string into buffer
+	inc rdi				; 	increment current string length
 	jmp .loop			; process next char
 
 .percent:
-	cmp rdx, 00 			; if no chars are to be printed:
-	je  .noPrint			; 	don't print
-					; else
-	call PrintStrN			; 	print the whole str before % sym
-	add  rsi, rdx			; 	move rsi to the pos before the %	
-	
-.noPrint:
-
 	xor rax, rax
-	mov al, [rdi] 			; load next char after % into al
+	mov al, [rsi] 			; load next char after % into al
 	
 	cmp al, '%' 			; special case when %% is entered
 	je  .dblPercent
@@ -89,10 +81,10 @@ __SECT__ 				; return to the previous section type
 
 .symS: 					; %s = print string
         inc rbx				; increment argument counter
-	push qword [rsp + rbx * 8 + 8] 	; push next argument = string ptr
+	push qword [rbp + rbx * 8 + 8] 	; push next argument = string ptr
 
 	call PrintStr 			; Print the string
-	mov  rdx, 2			; '%_': 2 bytes processed
+	add  rsi, 2			; '%_': 2 bytes processed
 
 	jmp .symEnd
 	
@@ -100,7 +92,7 @@ __SECT__ 				; return to the previous section type
 	push rsi			; save rsi
 
 	inc rbx				; inc arg counter
-	mov rsi, [rsp + rbx * 8 + 16] 	; rsi = &char arg
+	mov rsi, [rbp + rbx * 8 + 16] 	; rsi = &char arg
 	
 	mov rax, 0x01 			; write (rdi, rsi, rdx)
 	mov rdi, 0x01 			; stdout
@@ -109,7 +101,7 @@ __SECT__ 				; return to the previous section type
 
 	pop rsi				; restore rsi
 
-	mov rdx, 2			; '%_': 2 bytes processed
+	add rsi, 2			; '%_': 2 bytes processed
 
 	jmp .symEnd
 	
@@ -131,13 +123,13 @@ __SECT__ 				; return to the previous section type
 
 .PrintNum:
 	inc rbx
-	mov rdi, [rsp + rbx * 8 + 8] 	; rdi = value to print
+	mov rdx, [rsp + rbx * 8 + 8] 	; rdi = value to print
 
         push rsi
 
 	mov rsi, ItoaBuf		; rsi = &ItoaBuf
 
-	cmp cl, 00 			; if base indicator in not 00
+	cmp cl, 00 			; if base indicator != 00
 	jne .toBase2n 			; 	base = 2^n
 					; else
 					; 	base = 10
@@ -181,3 +173,13 @@ __SECT__ 				; return to the previous section type
 	pop rbp
 
 	ret
+
+;##############################################
+; Printf Buffer of len 256 bytes
+;##############################################
+
+[section .bss]
+
+printBuf	resb 256		; buffer for output
+
+__SECT__

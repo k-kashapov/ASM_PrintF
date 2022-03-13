@@ -5,6 +5,33 @@ section .text
 global Strlen, PrintStr, PrintStrN, itoa, itoa10, ItoaBuf
 
 ;==============================================
+; Copies n bytes of string into buffer. Puts
+; ENDL (00h) symbol at the end of the str.
+; Expects:
+;       CX - Number of bytes to copy
+;       DI - Buffer of length >= n + 1
+;       SI - String address
+; Returns:
+;       CX - 00h if successful, non-zero value if not
+; Destr:
+;       AX
+;==============================================
+
+StrNCpy:
+
+.CpyByte:
+        lodsb                           ; copy 1 byte to AL
+        cmp AL, EOL                     ; check if byte is 00h
+        je  .Fin
+        stosb                           ; [DI] = AL 
+
+        Loop .CpyByte
+
+.Fin:
+        mov byte [rdi], EOL              ; ENDL symbol
+        ret
+
+;==============================================
 ; Counts string length. String must end with
 ; EOL symbol
 ; Expects:
@@ -96,10 +123,10 @@ section .text
 ; Converts integer value into a string, base 2^n
 ; Expects:
 ;       cl  - Base = 2^cl
-;       rdi - Integer value
-;       rsi - Buffer to write str into
+;       rdx - Integer value
+;       rdi - Buffer to write str into
 ; Returns:
-;       rsi - Result string
+;       rdi - Result string
 ; Destr:
 ; 	rax, r10, rcx
 ;==============================================
@@ -107,12 +134,12 @@ section .text
 itoa:	
         call CountBytes
         
-        add rsi, rax                    ; save space for elder bits in buff: _ _ _ rdi: _
+        add rdi, rax                    ; save space for elder bits in buff: _ _ _ rdi: _
         
         movzx rax, cl			; rax = cl
 
-        mov byte [rsi], EOL             ; put $ as last byte: _ _ _ _ $
-        dec rsi                         ; _ _ _ rdi: _ $
+        mov byte [rdi], EOL             ; put EOL as last byte: _ _ _ _ $
+        dec rdi                         ; _ _ _ rdi: _ $
 
         mov r10, 01b                    ; mask = 0..01b
         shl r10, cl                     ; mask = 0..010..0b
@@ -121,18 +148,18 @@ itoa:
 .BitLoop:
         mov rax, r10
 
-        and rax, rdi                    ; apply mask to rdx
-        shr rdi, cl                     ; cut off masked bits: 01010011 -> 001010|011
+        and rax, rdx                    ; apply mask to rdx
+        shr rdx, cl                     ; cut off masked bits: 01010011 -> 001010|011
 
         mov al, [rax + HEX]
-        mov [rsi], al
+        mov [rdi], al
 
 .CmpZero:
-        dec rsi                        	; moving backwards: _ _ rdi: _ 0 1 0 $
-        cmp rdi, 00h                    ; check if the whole value has been printed
+        dec rdi                        	; moving backwards: _ _ rdi: _ 0 1 0 $
+        cmp rdx, 00h                    ; check if the whole value has been printed
         ja  .BitLoop
 
-	inc rsi				; rsi must point it the first byte of buf
+	inc rdi				; rdi must point it the first byte of buf
 
         ret
 
@@ -141,7 +168,7 @@ itoa:
 ; number into buffer
 ;
 ; Expects:
-;       rdi - Value
+;       rdx - Value
 ;       cl - Base
 ; Returns:
 ;       rax = ch - amount of bytes needed
@@ -151,7 +178,7 @@ itoa:
 
 CountBytes:
 	xor rax, rax
-        mov rax, rdi	; save value in r10 to count symbols in it
+        mov rax, rdx	; save value in r10 to count symbols in it
         xor ch, ch
 
 .Loop:
@@ -167,8 +194,8 @@ CountBytes:
 ;==============================================
 ; Converts integer value into a string, base 10
 ; Expects:
-;       rdi - Integer value
-;       rsi - Buffer to write into
+;       rdx - Integer value
+;       rdi - Buffer to write into
 ; Returns:
 ;       None
 ; Destr:
@@ -176,7 +203,8 @@ CountBytes:
 ;==============================================
 
 itoa10:
-        mov rax, rdi		; save value to rax
+	mov rdx, r8 		; from now on, value is stored in r8
+        mov rax, rdx		; save value to rax
         mov r10, 10
 
 .CntBytes:              	; skips, bytes that are required to save the value
@@ -187,7 +215,7 @@ itoa10:
         cmp rax, 0000h
         ja .CntBytes
 
-        mov rax, rdi           	; reset value
+        mov rax, r8           	; reset value
         
         mov byte [rsi], EOL
         dec rsi
@@ -197,12 +225,12 @@ itoa10:
         div r10                 ; rax = rax / 10; rdx = rax % 10
         
         add dl, '0'           	; to ASCII
-        mov [rsi], dl
-        dec rsi
+        mov [rdi], dl
+        dec rdi
 
         cmp rax, 00h
         ja .Print
-
-	inc rsi
+				; rdi = &buffer - 1
+	inc rdi			; rdi = &buffer
 
         ret
