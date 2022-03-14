@@ -85,10 +85,17 @@ PrintStr:
 ; ITOA functions
 ;##############################################
 
+;##############################################
+; Data buffers
+;##############################################
+
 section .data
 
 HEX	db '0123456789ABCDEF'
-ItoaBuf times 64 db 0
+
+section .bss
+
+ItoaBuf resb 64
 
 section .text
 

@@ -100,21 +100,18 @@ CPrintf:
 	push r8 			;
 	push rcx			;
 	push rdx			;
-	push rsi 			; push args
+	push rsi			;
+	push rdi 			; push args
 
-	push rbx 			; push return addr
+	push r10
 
 	push rbp			; stack frame
 	mov  rbp, rsp
 
-	mov rsi, rdi 			; rsi = format str
-
-	push r10
-
 	call Printf
 
-	pop r10 		 	; pop ret addr
 	pop rbp 			; pop old rbp
+	pop r10 		 	; pop ret addr
 	
 	times 5 pop rax 		; pop args
 	
@@ -127,10 +124,9 @@ CPrintf:
 ; string. Similar to C printf function
 ;
 ; Expects: (Cdecl)
-; 	rsi      - Format string
 ; 	printBuf - buffer to print into before
 ; 		   writing to screen
-; 	Stack    - arguments
+; 	Stack    - Format str, arguments
 ;
 ; Returns:
 ; 	0
@@ -140,6 +136,8 @@ CPrintf:
 ;==============================================
 
 Printf:
+	mov rsi, [rbp + 16] 		; rsi - format str
+	
 	mov rdi, printBuf		; rdi - buffer iterator
 	mov rbx, 0			; rbx - argument iterator
 
@@ -202,7 +200,7 @@ __SECT__ 				; return to the previous section type
 	push rsi
 
         inc rbx				; increment argument counter
-	mov rsi, [rbp + rbx * 8 + 8] 	; push next argument = string ptr
+	mov rsi, [rbp + rbx * 8 + 16] 	; push next argument = string ptr
 
 	call CpyToBuf			; copy arg string to buffer
 
@@ -213,7 +211,7 @@ __SECT__ 				; return to the previous section type
 	
 .symC: 					; %c = print char
 	inc rbx				; inc arg counter
-	mov ax, [rbp + rbx * 8 + 8] 	; rsi = &char arg
+	mov ax, [rbp + rbx * 8 + 16] 	; rsi = &char arg
 
 	mov [rdi], al			; print it to the buffer
 
@@ -242,7 +240,7 @@ __SECT__ 				; return to the previous section type
 
 .PrintNum:
 	inc rbx
-	mov rdx, [rbp + rbx * 8 + 8] 	; rdx = value to print
+	mov rdx, [rbp + rbx * 8 + 16] 	; rdx = value to print
 
 	push rdi			; save old rdi
 	mov rdi, ItoaBuf 		; rdi = temp buffer
