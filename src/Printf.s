@@ -1,3 +1,5 @@
+default rel
+
 global Printf, CPrintf
 
 %include 'Constant.h'
@@ -10,7 +12,7 @@ extern Strlen, PrintStr, PrintStrN, itoa, itoa10, ItoaBuf
 
 section .bss
 
-printBuf	resb BUF_LEN	; buffer for output
+printBuf	resb BUF_LEN		; buffer for output
 
 %macro CheckOverflow 0
 	cmp rdi, printBuf + BUF_LEN - 1	; if >= BUF_LEN - 1 written
@@ -80,16 +82,17 @@ CpyToBuf:
         jmp .CpyByte
 
 .Fin:
-        mov byte [rdi], EOL              ; ENDL symbol
+        mov byte [rdi], EOL             ; ENDL symbol
         ret
 
 ;==============================================
 ; Printf made to be run from C with respect
-; to fastcall Unix conventions.
+; to fastcall x86_64 Unix conventions.
 ;
 ; Expects:
 ; 	rdi - Format string
-; 	rsi, rdx, rcx, r8, r9, Stack Cdecl - args
+; 	ARGS: rsi, rdx, rcx, r8, r9, \
+;	      Stack (Cdecl)
 ;
 ;==============================================
 
@@ -113,7 +116,7 @@ CPrintf:
 	pop rbp 			; pop old rbp
 	pop r10 		 	; pop ret addr
 	
-	times 5 pop rax 		; pop args
+	add rsp, 48
 	
 	push r10 			; push ret addr
 
@@ -143,8 +146,7 @@ Printf:
 
 .loop:
 	xor rax, rax
-	mov al, [rsi] 			; load byte symbols into al
-	inc rsi 			; move to the next symbol
+	lodsb 				; load next byte
 
 	cmp al, '%' 			; if (*Msg == '%')
 	je  .percent			; 	process the % symbol
@@ -159,7 +161,7 @@ Printf:
 
 .percent:
 	xor rax, rax
-	mov al, [rsi] 			; load next char after % into al
+	lodsb 				; load next byte after %
 	
 	cmp al, '%' 			; special case when %% is entered
 	je  .dblPercent
@@ -205,7 +207,6 @@ __SECT__ 				; return to the previous section type
 	call CpyToBuf			; copy arg string to buffer
 
 	pop rsi
-	inc rsi 			; step over '%_'
 
 	jmp .symEnd
 	
@@ -213,12 +214,9 @@ __SECT__ 				; return to the previous section type
 	inc rbx				; inc arg counter
 	mov ax, [rbp + rbx * 8 + 16] 	; rsi = &char arg
 
-	mov [rdi], al			; print it to the buffer
+	stosb				; print symbol to buffer
 
-	inc rdi 			; 1 byte written to buffer
 	CheckOverflow
-
-	inc rsi				; step over '%_'
 
 	jmp .symEnd
 	
@@ -259,31 +257,25 @@ __SECT__ 				; return to the previous section type
 .translated:
 	pop rdi				; rdi = free space in buf
 	
-	push rsi
+	push rsi 			; rsi = ItoaBuf
 	mov rsi, ItoaBuf 		; copy from ItoaBuf to PrintBuf
 	call CpyToBuf
 	
 	pop rsi
 
-       	inc rsi  			; step over '%_'
-
 	jmp .symEnd
 
 .dblPercent:
-	mov [rdi], al 			; print % into buffer
-	
-	inc rdi 			; increment buffer ptr
+	stosb 				; print % to buffer
 	CheckOverflow
-
-	inc rsi 			; step over the next % sign
+	
 	jmp .symEnd
 
 .otherSym:
 	mov byte [rdi], '%'		; print % sign
 	inc rdi 			; increment buff ptr
 	CheckOverflow
-
-	inc rsi 			; step over the next % sign
+	
 	jmp .symEnd
 	
 .symEnd:

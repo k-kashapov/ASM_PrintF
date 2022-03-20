@@ -1,7 +1,7 @@
 all: 		runFromC
 
 runFromC: 	obj main.cpp
-		gcc main.cpp obj/Printf.o obj/StrFunc.o -o RunFromC.exe -no-pie
+		gcc main.cpp obj/Printf.o obj/StrFunc.o -o RunFromC.exe
 
 runFromASM: 	obj main.o
 		ld -s obj/Printf.o obj/StrFunc.o obj/main.o  -m elf_x86_64 -o Printf.exe
